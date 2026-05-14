@@ -1,9 +1,8 @@
-import { kv } from '@vercel/kv';
+import { getDb, saveDb } from '../storage.js';
 
 export const config = { runtime: 'edge' };
 
 export default async function handler(req) {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
@@ -15,89 +14,57 @@ export default async function handler(req) {
     });
   }
 
-  // Verify admin key
   const adminKey = process.env.ADMIN_KEY || 'dragler_admin_2024';
   const authHeader = req.headers.get('Authorization');
 
   if (authHeader !== `Bearer ${adminKey}`) {
-    return Response.json({ error: 'Unauthorized' }, {
-      status: 401,
-      headers: { 'Access-Control-Allow-Origin': '*' },
-    });
+    return Response.json({ error: 'Unauthorized' }, { status: 401, headers: { 'Access-Control-Allow-Origin': '*' } });
   }
 
   const headers = { 'Access-Control-Allow-Origin': '*' };
 
   try {
-    // GET — List all devices
+    const db = await getDb();
+
     if (req.method === 'GET') {
-      const deviceIds = await kv.smembers('devices');
-
-      if (!deviceIds || deviceIds.length === 0) {
-        return Response.json({ devices: [] }, { headers });
-      }
-
-      const devices = [];
-      for (const id of deviceIds) {
-        const device = await kv.hgetall(`device:${id}`);
-        if (device && device.device_id) {
-          devices.push(device);
-        }
-      }
-
-      // Sort by activated_at descending (newest first)
-      devices.sort((a, b) =>
-        new Date(b.activated_at || 0) - new Date(a.activated_at || 0)
-      );
-
+      const devices = db.devices || [];
+      devices.sort((a, b) => new Date(b.activated_at || 0) - new Date(a.activated_at || 0));
       return Response.json({ devices }, { headers });
     }
 
-    // POST — Revoke or restore a device
     if (req.method === 'POST') {
       const { device_id, action } = await req.json();
+      if (!device_id || !action) return Response.json({ error: 'Missing device_id or action' }, { status: 400, headers });
 
-      if (!device_id || !action) {
-        return Response.json({ error: 'Missing device_id or action' }, {
-          status: 400, headers,
-        });
-      }
+      const deviceIndex = db.devices.findIndex(d => d.device_id === device_id);
 
-      const device = await kv.hgetall(`device:${device_id}`);
-
-      if (!device || !device.device_id) {
-        return Response.json({ error: 'Device not found' }, {
-          status: 404, headers,
-        });
+      if (deviceIndex === -1) {
+        return Response.json({ error: 'Device not found' }, { status: 404, headers });
       }
 
       if (action === 'revoke') {
-        await kv.hset(`device:${device_id}`, { status: 'revoked' });
+        db.devices[deviceIndex].status = 'revoked';
+        await saveDb(db);
         return Response.json({ status: 'revoked', device_id }, { headers });
       }
 
       if (action === 'restore') {
-        await kv.hset(`device:${device_id}`, { status: 'active' });
+        db.devices[deviceIndex].status = 'active';
+        await saveDb(db);
         return Response.json({ status: 'active', device_id }, { headers });
       }
 
       if (action === 'delete') {
-        await kv.del(`device:${device_id}`);
-        await kv.srem('devices', device_id);
+        db.devices.splice(deviceIndex, 1);
+        await saveDb(db);
         return Response.json({ status: 'deleted', device_id }, { headers });
       }
 
-      return Response.json({ error: 'Unknown action' }, {
-        status: 400, headers,
-      });
+      return Response.json({ error: 'Unknown action' }, { status: 400, headers });
     }
 
-    return Response.json({ error: 'Method not allowed' }, {
-      status: 405, headers,
-    });
+    return Response.json({ error: 'Method not allowed' }, { status: 405, headers });
   } catch (err) {
-    return Response.json({ error: 'Server error: ' + err.message }, {
-      status: 500, headers,
-    });
+    return Response.json({ error: 'Server error: ' + err.message }, { status: 500, headers });
   }
 }
