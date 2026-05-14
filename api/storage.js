@@ -25,7 +25,14 @@ export async function getDb() {
       }
     });
     const data = await res.json();
-    return data.record || { devices: [] };
+    let record = data.record;
+    if (!record || typeof record !== 'object') {
+      record = { devices: [] };
+    }
+    if (!Array.isArray(record.devices)) {
+      record.devices = [];
+    }
+    return record;
   } catch (e) {
     console.error("Failed to read DB", e);
     return { devices: [] };
