@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DRAGLER 2.0 — Admin Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #080a12;
+            --panel: rgba(16, 20, 32, 0.8);
+            --primary: #6C5CE7;
+            --accent: #00CEC9;
+            --danger: #FF7675;
+            --success: #00b894;
+            --warning: #fdcb6e;
+            --text: #F1F2F6;
+            --muted: #7f8c9b;
+            --border: rgba(255,255,255,0.07);
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #080a12, #0d1020, #0a0f1a);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 2rem;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            backdrop-filter: blur(16px);
+        }
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header p { color: var(--muted); margin-top: 6px; font-size: 0.88rem; }
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-bottom: 1.5rem;
+        }
+        .stat-box {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.2rem;
+            text-align: center;
+        }
+        .stat-box .num {
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .stat-box .label { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; margin-top: 4px; }
+
+        /* Auth */
+        #auth-screen {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+        }
+        .auth-box {
+            background: var(--panel);
+            border: 1px solid rgba(108,92,231,0.25);
+            border-radius: 18px;
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 380px;
+            text-align: center;
+        }
+        .auth-box h2 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: var(--accent);
+        }
+        .auth-box input {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+        }
+        .auth-box input:focus { outline: none; border-color: var(--primary); }
+        .auth-box button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, var(--primary), #7c6cf0);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .auth-box button:hover { box-shadow: 0 4px 20px rgba(108,92,231,0.4); }
+        #auth-error { color: var(--danger); font-size: 0.85rem; margin-top: 8px; }
+
+        /* Table */
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.5rem;
+            backdrop-filter: blur(16px);
+        }
+        .panel h3 { color: var(--accent); margin-bottom: 1rem; font-size: 1rem; }
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            text-align: left;
+            padding: 10px 12px;
+            color: var(--muted);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+        }
+        td {
+            padding: 12px;
+            font-size: 0.88rem;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            vertical-align: middle;
+        }
+        tr:hover td { background: rgba(108,92,231,0.04); }
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+        .badge-active { background: rgba(0,184,148,0.12); color: var(--success); border: 1px solid rgba(0,184,148,0.3); }
+        .badge-revoked { background: rgba(255,118,117,0.12); color: var(--danger); border: 1px solid rgba(255,118,117,0.3); }
+        .badge-premium { background: rgba(0,206,201,0.1); color: var(--accent); border: 1px solid rgba(0,206,201,0.3); }
+        .badge-trial { background: rgba(253,203,110,0.1); color: var(--warning); border: 1px solid rgba(253,203,110,0.3); }
+        .action-btn {
+            padding: 6px 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+        .btn-revoke { background: rgba(255,118,117,0.15); color: var(--danger); }
+        .btn-revoke:hover { background: rgba(255,118,117,0.3); }
+        .btn-restore { background: rgba(0,184,148,0.15); color: var(--success); }
+        .btn-restore:hover { background: rgba(0,184,148,0.3); }
+        .btn-delete { background: rgba(255,255,255,0.05); color: var(--muted); margin-left: 6px; }
+        .btn-delete:hover { background: rgba(255,118,117,0.2); color: var(--danger); }
+        .device-id { font-family: monospace; font-size: 0.8rem; color: var(--muted); }
+        .empty-state { text-align: center; padding: 3rem; color: var(--muted); }
+        .refresh-btn {
+            float: right;
+            padding: 6px 16px;
+            background: rgba(108,92,231,0.15);
+            color: var(--primary);
+            border: 1px solid rgba(108,92,231,0.3);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+        .refresh-btn:hover { background: rgba(108,92,231,0.25); }
+        .time-ago { color: var(--muted); font-size: 0.78rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛡 DRAGLER 2.0 Admin</h1>
+            <p>Remote License Management Dashboard</p>
+        </div>
+
+        <!-- Auth Screen -->
+        <div id="auth-screen">
+            <div class="auth-box">
+                <h2>🔑 Admin Login</h2>
+                <input type="password" id="admin-key" placeholder="Enter admin key..." autofocus>
+                <button onclick="doLogin()">Login</button>
+                <p id="auth-error"></p>
+            </div>
+        </div>
+
+        <!-- Dashboard (hidden until auth) -->
+        <div id="dashboard" style="display:none;">
+            <div class="stats-row">
+                <div class="stat-box"><div class="num" id="s-total">0</div><div class="label">Total Devices</div></div>
+                <div class="stat-box"><div class="num" id="s-active">0</div><div class="label">Active</div></div>
+                <div class="stat-box"><div class="num" id="s-revoked">0</div><div class="label">Revoked</div></div>
+                <div class="stat-box"><div class="num" id="s-premium">0</div><div class="label">Premium</div></div>
+            </div>
+
+            <div class="panel">
+                <h3>📋 Registered Devices <button class="refresh-btn" onclick="loadDevices()">↻ Refresh</button></h3>
+                <div id="devices-container">
+                    <div class="empty-state">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ADMIN_KEY = '';
+        const API_BASE = window.location.origin;
+
+        function doLogin() {
+            ADMIN_KEY = document.getElementById('admin-key').value.trim();
+            if (!ADMIN_KEY) return;
+            loadDevices().then(ok => {
+                if (ok) {
+                    document.getElementById('auth-screen').style.display = 'none';
+                    document.getElementById('dashboard').style.display = 'block';
+                } else {
+                    document.getElementById('auth-error').textContent = '❌ Invalid admin key';
+                }
+            });
+        }
+
+        document.getElementById('admin-key').addEventListener('keydown', e => {
+            if (e.key === 'Enter') doLogin();
+        });
+
+        function timeAgo(date) {
+            if (!date) return 'Never';
+            const diff = Date.now() - new Date(date).getTime();
+            const mins = Math.floor(diff / 60000);
+            if (mins < 1) return 'Just now';
+            if (mins < 60) return `${mins}m ago`;
+            const hrs = Math.floor(mins / 60);
+            if (hrs < 24) return `${hrs}h ago`;
+            const days = Math.floor(hrs / 24);
+            return `${days}d ago`;
+        }
+
+        async function loadDevices() {
+            try {
+                const res = await fetch(`${API_BASE}/api/admin/devices`, {
+                    headers: { 'Authorization': `Bearer ${ADMIN_KEY}` }
+                });
+                if (res.status === 401) return false;
+                const data = await res.json();
+                renderDevices(data.devices || []);
+                return true;
+            } catch (e) {
+                console.error(e);
+                return false;
+            }
+        }
+
+        function renderDevices(devices) {
+            const total = devices.length;
+            const active = devices.filter(d => d.status !== 'revoked').length;
+            const revoked = devices.filter(d => d.status === 'revoked').length;
+            const premium = devices.filter(d => d.license_type === 'premium').length;
+
+            document.getElementById('s-total').textContent = total;
+            document.getElementById('s-active').textContent = active;
+            document.getElementById('s-revoked').textContent = revoked;
+            document.getElementById('s-premium').textContent = premium;
+
+            if (devices.length === 0) {
+                document.getElementById('devices-container').innerHTML =
+                    '<div class="empty-state">No devices registered yet. Users will appear here after they activate DRAGLER 2.0.</div>';
+                return;
+            }
+
+            let html = `<table><thead><tr>
+                <th>Device ID</th><th>Machine</th><th>License</th>
+                <th>Status</th><th>Activated</th><th>Last Seen</th><th>Actions</th>
+            </tr></thead><tbody>`;
+
+            for (const d of devices) {
+                const isRevoked = d.status === 'revoked';
+                const statusBadge = isRevoked
+                    ? '<span class="badge badge-revoked">Revoked</span>'
+                    : '<span class="badge badge-active">Active</span>';
+                const typeBadge = d.license_type === 'premium'
+                    ? '<span class="badge badge-premium">Premium</span>'
+                    : '<span class="badge badge-trial">Trial</span>';
+                const actionBtn = isRevoked
+                    ? `<button class="action-btn btn-restore" onclick="deviceAction('${d.device_id}','restore')">✓ Restore</button>`
+                    : `<button class="action-btn btn-revoke" onclick="deviceAction('${d.device_id}','revoke')">✗ Revoke</button>`;
+
+                html += `<tr>
+                    <td class="device-id">${d.device_id}</td>
+                    <td>${d.machine_name || '—'}</td>
+                    <td>${typeBadge}</td>
+                    <td>${statusBadge}</td>
+                    <td class="time-ago">${timeAgo(d.activated_at)}</td>
+                    <td class="time-ago">${timeAgo(d.last_seen)}</td>
+                    <td>${actionBtn}<button class="action-btn btn-delete" onclick="deviceAction('${d.device_id}','delete')">🗑</button></td>
+                </tr>`;
+            }
+
+            html += '</tbody></table>';
+            document.getElementById('devices-container').innerHTML = html;
+        }
+
+        async function deviceAction(deviceId, action) {
+            const confirmMsg = action === 'delete'
+                ? 'Permanently delete this device?'
+                : action === 'revoke'
+                ? 'Revoke this device? The user will be locked out.'
+                : 'Restore access for this device?';
+            if (!confirm(confirmMsg)) return;
+
+            try {
+                await fetch(`${API_BASE}/api/admin/devices`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${ADMIN_KEY}`,
+                    },
+                    body: JSON.stringify({ device_id: deviceId, action }),
+                });
+                loadDevices();
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+    </script>
+</body>
+</html>
