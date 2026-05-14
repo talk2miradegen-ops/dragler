@@ -1,9 +1,8 @@
-import { kv } from '@vercel/kv';
+import { getDb, saveDb } from './storage.js';
 
 export const config = { runtime: 'edge' };
 
 export default async function handler(req) {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
@@ -15,52 +14,36 @@ export default async function handler(req) {
     });
   }
 
-  if (req.method !== 'POST') {
-    return Response.json({ error: 'Method not allowed' }, { status: 405 });
-  }
+  if (req.method !== 'POST') return Response.json({ error: 'Method not allowed' }, { status: 405 });
 
   try {
     const { device_id, machine_name, license_type } = await req.json();
+    if (!device_id) return Response.json({ error: 'Missing device_id' }, { status: 400 });
 
-    if (!device_id) {
-      return Response.json({ error: 'Missing device_id' }, { status: 400 });
-    }
+    const db = await getDb();
+    let device = db.devices.find(d => d.device_id === device_id);
 
-    // Check if device already exists
-    const existing = await kv.hgetall(`device:${device_id}`);
-
-    if (existing && existing.device_id) {
-      // Update last seen
-      await kv.hset(`device:${device_id}`, {
+    if (device) {
+      device.last_seen = new Date().toISOString();
+      if (machine_name) device.machine_name = machine_name;
+      if (license_type) device.license_type = license_type;
+    } else {
+      db.devices.push({
+        device_id,
+        machine_name: machine_name || 'Unknown',
+        license_type: license_type || 'trial',
+        activated_at: new Date().toISOString(),
         last_seen: new Date().toISOString(),
-        machine_name: machine_name || existing.machine_name,
-        license_type: license_type || existing.license_type,
-      });
-      return Response.json({ status: 'updated' }, {
-        headers: { 'Access-Control-Allow-Origin': '*' },
+        status: 'active',
       });
     }
 
-    // Register new device
-    await kv.hset(`device:${device_id}`, {
-      device_id,
-      machine_name: machine_name || 'Unknown',
-      license_type: license_type || 'trial',
-      activated_at: new Date().toISOString(),
-      last_seen: new Date().toISOString(),
-      status: 'active',
-    });
-
-    // Add to device index
-    await kv.sadd('devices', device_id);
+    await saveDb(db);
 
     return Response.json({ status: 'registered' }, {
       headers: { 'Access-Control-Allow-Origin': '*' },
     });
   } catch (err) {
-    return Response.json({ error: 'Server error' }, {
-      status: 500,
-      headers: { 'Access-Control-Allow-Origin': '*' },
-    });
+    return Response.json({ error: 'Server error' }, { status: 500, headers: { 'Access-Control-Allow-Origin': '*' }});
   }
 }
