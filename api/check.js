@@ -1,9 +1,8 @@
-import { kv } from '@vercel/kv';
+import { getDb, saveDb } from './storage.js';
 
 export const config = { runtime: 'edge' };
 
 export default async function handler(req) {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
@@ -15,45 +14,31 @@ export default async function handler(req) {
     });
   }
 
-  if (req.method !== 'POST') {
-    return Response.json({ error: 'Method not allowed' }, { status: 405 });
-  }
+  if (req.method !== 'POST') return Response.json({ error: 'Method not allowed' }, { status: 405 });
 
   try {
     const { device_id } = await req.json();
-
     if (!device_id) {
-      return Response.json({ allowed: true, message: '' }, {
-        headers: { 'Access-Control-Allow-Origin': '*' },
-      });
+      return Response.json({ allowed: true, message: '' }, { headers: { 'Access-Control-Allow-Origin': '*' } });
     }
 
-    const device = await kv.hgetall(`device:${device_id}`);
+    const db = await getDb();
+    const device = db.devices.find(d => d.device_id === device_id);
 
-    // If device not found, allow (not registered yet)
-    if (!device || !device.device_id) {
-      return Response.json({ allowed: true, message: '' }, {
-        headers: { 'Access-Control-Allow-Origin': '*' },
-      });
+    if (!device) {
+      return Response.json({ allowed: true, message: '' }, { headers: { 'Access-Control-Allow-Origin': '*' } });
     }
 
-    // Update last seen
-    await kv.hset(`device:${device_id}`, {
-      last_seen: new Date().toISOString(),
-    });
+    device.last_seen = new Date().toISOString();
+    
+    // Non-blocking save to avoid slowing down the heartbeat check
+    saveDb(db).catch(() => {});
 
     const allowed = device.status !== 'revoked';
-    const message = allowed
-      ? ''
-      : 'Your license has been revoked. Contact @miradegen11 on Telegram for unlocking.';
+    const message = allowed ? '' : 'Your license has been revoked. Contact @miradegen11 on Telegram for unlocking.';
 
-    return Response.json({ allowed, message }, {
-      headers: { 'Access-Control-Allow-Origin': '*' },
-    });
+    return Response.json({ allowed, message }, { headers: { 'Access-Control-Allow-Origin': '*' } });
   } catch (err) {
-    // On error, allow (don't lock users out due to server issues)
-    return Response.json({ allowed: true, message: '' }, {
-      headers: { 'Access-Control-Allow-Origin': '*' },
-    });
+    return Response.json({ allowed: true, message: '' }, { headers: { 'Access-Control-Allow-Origin': '*' } });
   }
 }
